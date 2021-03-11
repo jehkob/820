@@ -1,0 +1,155 @@
+---
+title: "Initial Results & Code CIND820"
+author: "Jakob Larry"
+date: "04/03/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+Reading dataset into R. Here I will show introductory information to dataset, including the structure and quantile distributions of variables
+
+```{r spotify}
+spotify <- read.csv("C:/Users/Jakob/Documents/School/820/data.csv/data.csv")
+head(spotify)
+str(spotify)
+summary(spotify)
+```
+Let's load some libraries imperative to the EDA.
+```{r libraries}
+library(ggplot2)
+library(dplyr)
+library(corrplot)
+library(tidyr)
+library(janitor)
+```
+
+
+``` {r n/a ?}
+any(is.na(spotify))
+
+```
+There are no missing values to worry about with our analysis.
+
+``` {r distributions}
+numIntSpotify <- c("acousticness","danceability","energy","instrumentalness","liveness","loudness","speechiness","tempo","valence", 
+                   "duration_ms","explicit","key","mode","popularity","year")
+
+dfNumSpotify <- spotify[,numIntSpotify]
+par(mfrow=c(3,5))
+colnames <- dimnames(dfNumSpotify)[[2]]
+for (i in 1:15) {
+  d <- density(dfNumSpotify[,i])
+  plot(d, type = "n", main = colnames[i])
+  polygon(d, col="blue",border="gray")
+}
+
+```
+Here we see the distributions of all of our numeric variables. Most are continuous, however we have a few categorical (mode, key, explicit). Danceability, energy, valence, tempo all seem to follow strong defined estimates of prior distributions, whereas acousticness, loudness, speechiness & liveness are all relatively skewed. We should consider scaling these variables. 
+
+``` {r normalizing}
+
+normalize <- function(x){
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+spotify$acousticness <- normalize(spotify$acousticness)
+spotify$loudness <- normalize(spotify$loudness)
+spotify$speechiness <- normalize(spotify$speechiness)
+spotify$liveness<-normalize(spotify$liveness)
+```
+We have now normalized these variables and can look to apply correlation analysis to determine further which variables should be considered within our modelling efforts. 
+
+
+
+``` {r corr}
+numIntCorr <- cor(spotify[,numIntSpotify])
+corrplot(numIntCorr,method="shade", type = "upper")
+```
+Duration, key, mode seem to have no direct tie with the overall popularity with a song, whereas there is some sembleance of relationship with the other variables included within this analysis. 
+
+Off the rip, it looks as if acousticness has a strong neg correlation, while energy & loudness have positive relationships with the popularity of a song on spotify. 
+
+If we include the 3 mentioned prior with "id", "name" "release date", "artists", we have 6 varaibles to which provide no meaningful contributions towards the modeling process and can thus be removed. WE remove artists and name, as we are looking for the contents of the song to which 
+
+
+``` {r variable removal}
+spotify$name <- NULL 
+spotify$key <- NULL
+spotify$mode <- NULL
+spotify$duration_ms <- NULL
+spotify$release_date <- NULL
+spotify$artists <- NULL
+spotify$id <- NULL 
+```
+
+Now, I will look at some time series plots to further investigate relationships variables have with year. This should tell us whether we should keep year as an indicator variable due to the intertwinement it may have with other variables that would otherwise skew prediction results. 
+
+
+```{r acousticness T-S, echo=FALSE}
+spotifyByYear <- aggregate(acousticness~year, data=spotify, mean)
+ggplot(data=spotifyByYear, aes(x = year, y = acousticness)) + 
+  geom_line(size=1.5) +
+  ggtitle("Acousticness by Year") +
+  geom_smooth(method = lm, color = "red", se=TRUE, show.legend=TRUE, linetype ="longdash")
+
+```
+
+we see that the strong negative correlation of year with acousticness happens as songs use less acoustic instruments in their music over time. 
+
+```{r energy , echo= FALSE}
+spotifyByYear <- aggregate(energy~year, data=spotify, mean)
+ggplot(data=spotifyByYear, aes(x = year, y = energy)) + 
+  geom_line(size=1.5) +
+  ggtitle("Energy by Year") +
+  geom_smooth(method = lm, color = "red", se=TRUE, show.legend=TRUE, linetype ="longdash")
+```
+
+```{r ,echo=FALSE}
+spotifyByYear <- aggregate(tempo~year, data=spotify, mean)
+ggplot(data=spotifyByYear, aes(x = year, y = tempo)) + 
+  geom_line(size=1.5) +
+  ggtitle("Tempo by Year") +
+  geom_smooth(method = lm, color = "red", se=TRUE, show.legend=TRUE, linetype ="longdash")
+```
+
+Tempo also sees increases over time. This explains the strong positive correlation between the two we saw previously. 
+
+```{r loudness T-S, echo=FALSE}
+spotifyByYear <- aggregate(loudness~year, data=spotify, mean)
+ggplot(data=spotifyByYear, aes(x = year, y = loudness)) + 
+  geom_line(size=1.5) +
+  ggtitle("Loudness by Year") +
+  geom_smooth(method = lm, color = "red", se=TRUE, show.legend=TRUE, linetype ="longdash")
+
+```
+
+
+```{r Popularity T-S, echo=FALSE}
+
+spotifyByYear <- aggregate(popularity~year, data=spotify, mean)
+ggplot(data=spotifyByYear, aes(x = year, y = popularity)) + 
+  geom_line(size=1.5) +
+  ggtitle("Popularity by Year") +
+  geom_smooth(method = lm, color = "red", se=TRUE, show.legend=TRUE, linetype ="longdash")
+
+```
+
+This last graph was more out of curiosity. It doesn't hold much value other than as a final decider whether or not we choose to use "year" within our final dataframe for modelling purposes. As you can expect, the average song is more popular on spotify closer to the current date than songs in the past. Based on the previous data, where acousticness, loudness, etc all had signficant trends year over year, it makes sense to include "year" in the final dataframe, as the modeling techniques we are using can distinguish this properly, allowing for the interpolation that may occur otherwise to be properly accounted for and creating stronger results. As a result of this interpolation, it seems easiest & efficient to include year within our final data frame. OTher than that, we have no further EDA to display. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
