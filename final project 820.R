@@ -339,7 +339,82 @@ library(data.table)
 library(mlr)
 registerDoParallel(cores=8)
 
-#default xgboost before cv for model tuning
+#default xgboost w cv for model tuning - unfortunately ideas such as grid search tuning are not prevalent here w this so we must instead 
+# provide our own paramater inputs each time to evaluate the potential model optimizations. 
+
+
+params <- list(booster = "gbtree",
+               objective = "reg:squarederror",
+               eval_metric = "rmse", 
+               eta=0.3,
+               gamma = 0,
+               max_depth = 6, 
+               min_child_weight=1,
+               subsample = 0.5,
+               colsample_bytree = 0.5)
+tic()
+xgbDefault <- xgb.cv(params = params, 
+                     data = data.matrix(spotifyTrain2[,-8]),
+                     label = spotifyTrain2$popularity, 
+                     nrounds = 2000,
+                     nfold = 10,
+                     showsd = T,
+                     stratified = F)
+toc()
+
+### [1999]	train-rmse:7.453553+0.034153	test-rmse:18.009486+0.084585 
+### [2000]	train-rmse:7.450885+0.034577	test-rmse:18.008912+0.084738 
+
+params2 <- list(booster = "gbtree",
+               objective = "reg:squarederror",
+               eval_metric = "rmse", 
+               eta=0.1,
+               gamma = 0,
+               maxdepth = 6, 
+               min_child_weight=1,
+               subsample = 0.4,
+               colsample_bytree = 0.5)
+tic()
+xgbDefault2 <- xgb.cv(params = params2, 
+                     data = data.matrix(spotifyTrain2[,-8]),
+                     label = spotifyTrain2$popularity, 
+                     nrounds = 3000,
+                     nfold = 10,
+                     showsd = T,
+                     stratified = F)
+toc()
+
+## slower learning rate w more depth rounds does not improve RMSE - converges much later without providing greater results
+##  [2999]	train-rmse:9.881774+0.018677	test-rmse:16.596572+0.101111 
+## [3000]	train-rmse:9.880515+0.018561	test-rmse:16.596574+0.101520 
+
+# higher learning rate, gamma 
+params3 <- list(booster = "gbtree",
+                objective = "reg:squarederror",
+                eval_metric = "rmse", 
+                eta=0.4,
+                gamma = 0.5,
+                maxdepth = 6, 
+                min_child_weight=1,
+                subsample = 0.5,
+                colsample_bytree = 0.5)
+tic()
+xgbDefault3 <- xgb.cv(params = params3, 
+                      data = data.matrix(spotifyTrain2[,-8]),
+                      label = spotifyTrain2$popularity, 
+                      nrounds = 3000,
+                      nfold = 10,
+                      showsd = T,
+                      stratified = F)
+
+## test-rmse is far too high rel. to train RMSE in previous iterations. gamma increase not good considering how well train RMSE decreases
+# not a viable tradeoff most likely overfit. 
+
+xgbFULL <- xgb.train(params = params, 
+                     data = data.matrix(spotifyTrain2[,-8]),
+                     label = spotifyTrain2$popularity,
+                     nrounds = 3000)
+
 
 
 
